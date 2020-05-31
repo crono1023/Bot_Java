@@ -5,10 +5,12 @@ import java.net.Socket;
 import java.sql.*;
 import java.util.ArrayList;
 
+@SuppressWarnings("BusyWait")
 public class Driver {
 
     private static Connection conn = null;
     private static final String databaseURL = "jdbc:sqlite:data.db";
+    private static final ArrayList<User> users = new ArrayList<>();
 
     public static void addSampleUsers() throws SQLException {
         // Open database connection
@@ -29,6 +31,32 @@ public class Driver {
         conn.close();
     }
 
+    private static User readOwner() throws SQLException {
+        // Create local variables
+        String sql;
+        Statement statement;
+        ResultSet results;
+        User user;
+
+        // Open database connection
+        conn = DriverManager.getConnection(databaseURL);
+
+        sql = "SELECT * FROM owner";
+        statement = conn.createStatement();
+        results = statement.executeQuery(sql);
+
+        if(results.next()){
+            user = new User(results.getString("nick"), results.getString("ident"),
+                    results.getString("hostname"));
+            return user;
+        }
+        else
+        {
+            throw new SQLException("Owner table error. Empty check succeded but can't pull owner info!");
+        }
+
+    }
+
     private static void createOwnerTable() throws SQLException {
         String sql = "CREATE TABLE IF NOT EXISTS owner (" +
                 "id integer PRIMARY KEY, " +
@@ -47,6 +75,19 @@ public class Driver {
                 "password text NOT NULL);";
         Statement stmt = conn.createStatement();
         stmt.execute(sql);
+    }
+
+    private static void registerOwner(String nick, String ident, String hostname) throws SQLException {
+
+        String sql = "INSERT INTO owner(nick, ident, hostname) VALUES(?,?,?)";
+
+        conn = DriverManager.getConnection(databaseURL);
+        PreparedStatement statement = conn.prepareStatement(sql);
+        statement.setString(1, nick);
+        statement.setString(2, ident);
+        statement.setString(3, hostname);
+        statement.executeUpdate();
+        conn.close();
     }
 
     private static boolean ownerTableExists() throws SQLException{
@@ -73,10 +114,8 @@ public class Driver {
         return !rs.next();
     }
 
-    public static ArrayList<String> parseUserInfo(String line){
-        // Create ArrayList to return to the main method that will contain
-        // three pieces of information, nick, ident, and hostname respectively.
-        ArrayList<String> userInfo = new ArrayList<>();
+    public static User parseUserInfo(String line){
+        String nick, ident, hostname;
 
         // Create a temporary buffer (String array) to split the initial command by a
         // delimiter.
@@ -84,14 +123,14 @@ public class Driver {
         String[] words = line.split(" ");
 
         // To separate the user's nickname, split the first part of the command by
-        // a delimter of '!'
+        // a delimiter of '!'
         String[] buffer = words[0].split("!");
 
         // Remove the leading ':' from the nickname stored in buffer[0]
         buffer[0] = buffer[0].substring(1);
 
         // Add the nickname to the userInfo ArrayList
-        userInfo.add(buffer[0]);
+        nick = buffer[0];
 
         // Now for the ident, split the remainder of buffer (first part of the
         // command from the IRC server that came after the '!' that separates the nickname
@@ -100,15 +139,15 @@ public class Driver {
         buffer = buffer[1].split("@");
 
         // Store the portion prior to the '@' as the ident
-        userInfo.add(buffer[0]);
+        ident = buffer[0];
         // Store the portion preceding the '@' as the hostname.
-        userInfo.add(buffer[1]);
+        hostname = buffer[1];
 
         // Return the userInfo ArrayList to the main method.
-        return userInfo;
+        return new User(nick, ident, hostname);
     }
 
-    private static ArrayList<String> parseCommandSent(@NotNull String command) throws Exception {
+    private static ArrayList<String> parseCommandSent(String command) throws Exception {
         // Create array list to return to the main method
         ArrayList<String> commandSent = new ArrayList<>();
 
@@ -133,8 +172,9 @@ public class Driver {
         }
         // Return commandSent to main method
         return commandSent;
-
     }
+
+
 
 
     public static void main(String[] args) throws Exception {
@@ -148,6 +188,7 @@ public class Driver {
         String realName = ":The last metroid is in captivity";
         ArrayList<String> commandSent;
         boolean ownerEstablished;
+        User owner = null;
         //String configurationPassword = "hereandnow";
 
 
@@ -170,12 +211,17 @@ public class Driver {
             else
             {
                 // If the table does exists, check to see if it is empty.
-                if(!ownerTableEmpty()){
-                    // Owner table exists, but is not empty, therefore owner is established.
+                // Owner table exists, but is not empty, therefore owner is established.
+                // The owner table exists, but is empty, therefore owner is not established.
+                if(!ownerTableEmpty())
+                {
+                    owner = readOwner();
                     ownerEstablished = true;
+                    System.out.println("Owner has been established from database.");
+                    users.add(owner);
                 }
-                else{
-                    // The owner table exists, but is empty, therefore owner is not established.
+                else
+                {
                     ownerEstablished = false;
                 }
             }
@@ -222,24 +268,47 @@ public class Driver {
                 if (line.toLowerCase().startsWith("ping ")) {
                     // Must respond to pings to avoid disconnection
                     writer.write("PONG " + line.substring(5) + "\r\n");
-                    writer.write("PRIVMSG " + channel + " :I got pinged!\r\n");
+                    System.out.println("I got pinged!");
                     writer.flush();
-                } else if (line.split(" ")[1].equals("PRIVMSG")){
+                }
+                // If command is a private message (potential command)
+                else if (line.split(" ")[1].equals("PRIVMSG")){
                     // Parse current line for user info and the potential command sent by the user.
-                    ArrayList<String> userInfo = parseUserInfo(line);
+                    User user  = parseUserInfo(line);
                     commandSent = parseCommandSent(line);
 
-                    if(userInfo.get(0).equals("crono")){
-                        System.out.println("Redundancy eliminated!!!!");
-                    }
+
                     if (!ownerEstablished && commandSent.get(0).toLowerCase().equals("hello")){
-                        writer.write("PRIVMSG crono :It's working!\r\n");
+                        writer.write("PRIVMSG crono :Hello. You are now the administrator.\r\n");
                         writer.flush();
+                        Thread.sleep(2000);
+
+                        writer.write("PRIVMSG crono :Normally this is where I would ask you to set a password, however, " +
+                                "that functionality hasn't been completed yet.\r\n");
+                        writer.flush();
+                        Thread.sleep(2000);
+
+                        writer.write("PRIVMSG crono :You will be identified by nick, ident, and hostname for now.\r\n");
+                        writer.flush();
+                        registerOwner(user.getNick(), user.getIdent(), user.getHostname());
+                        owner = user;
+                        users.add(owner);
+                        System.out.println("Owner has been established from IRC user.");
+
+                        // This line is here to hush-up a warning about the user list not being
+                        // queried.
+                        for(User user1 : users){
+                            if(user1.getNick().equals("hello"))
+                            {
+                                System.out.println("I've never see. A 1:15.");
+                            }
+                        }
+
                     }
                     else if (commandSent.get(0).equals("die")){
                         // check if the command came from crono (temporary check until
                         // owner / user database functionality is completed.
-                        if(userInfo.get(0).toLowerCase().equals("crono")){
+                        if(user.getNick().toLowerCase().equals("crono")){
 
                             // Send quit command to the server
                             // This will close the connection which cause the program to
@@ -248,35 +317,19 @@ public class Driver {
                             writer.write("QUIT :I'M OUT!\r\n");
                             writer.flush();
                         }
-
                     }
-                    else if(line.toLowerCase().contains("privmsg tourian :yo")) {
-                        writer.write("PRIVMSG Crono :Yo!\r\n");
-                        writer.flush();
-                    } else if(line.substring(1, 6).toLowerCase().equals("crono")){
-                        String[] words = line.split(" ");
-                        if(words[1].toUpperCase().equals("PRIVMSG")) {
-                            switch (words[3].toLowerCase()) {
-                                case ":hey":
-                                    writer.write("PRIVMSG crono :Hey!\r\n");
-                                    writer.flush();
-                                    userInfo = parseUserInfo(line);
-                                    System.out.println("Nick: " + userInfo.get(0));
-                                    System.out.println("Ident: " + userInfo.get(1));
-                                    System.out.println("Host: " + userInfo.get(2));
-                                    break;
-                                case ":addsample":
-                                    addSampleUsers();
-                                    System.out.println("Added sample user to the database.");
-                                    writer.write("PRIVMSG crono :Added sample user to the database.\r\n");
-                                    writer.flush();
-                                    break;
-                            }
-                        }
+                    // debug - check owner user object
+                    else if(commandSent.get(0).equals("whois") && user.getNick().toLowerCase().equals("crono"))
+                    {
+                        assert owner != null;
+                        writer.write("PRIVMSG crono :My owner is: " + owner.getNick() + "\r\n");
+                        Thread.sleep(1000);
                     }
                 }
             }
-        } catch (IOException | SQLException except) {
+        }
+        catch (IOException | SQLException except)
+        {
             except.printStackTrace();
         }
     }
