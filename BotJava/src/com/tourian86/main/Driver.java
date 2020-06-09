@@ -131,7 +131,6 @@ public class Driver {
         } else {
             statement.setString(5, "");
         }
-        System.out.println("");
         statement.setString(6, channel.getBansList());
         statement.setString(7, channel.getAdminsList());
 
