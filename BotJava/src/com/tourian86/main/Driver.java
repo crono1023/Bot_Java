@@ -15,18 +15,21 @@ public class Driver {
     private static final ArrayList<User> users = new ArrayList<>();
     private static final ArrayList<Integer> accessLevels = new ArrayList<>();
     private static BufferedWriter writer;
-    private static BufferedReader reader;
     private static final int delayTime = 1500;
+    private static final String botNick = "Tourian";
 
     private static void sendPrivateMessage(User user, String message) throws IOException, InterruptedException
     {
         writer.write("PRIVMSG " + user.getNick() + " :" + message + "\r\n");
         writer.flush();
         Thread.sleep(delayTime);
+        String logLine = "<" + botNick + ">: " + message;
+        writeToLog(logLine);
     }
-    private void writeToLog(String line) throws IOException {
-        FileWriter logWriter = new FileWriter("test_log");
-        logWriter.write(line);
+    private static void writeToLog(String line) throws IOException {
+        FileWriter logWriter = new FileWriter("test_log", true);
+        logWriter.write(line + "\n");
+        logWriter.close();
     }
 
     private static boolean isAuthenticatedUser(User user)
@@ -56,23 +59,16 @@ public class Driver {
         accessLevels.add(accessLevel);
     }
 
-    public static void addSampleUsers() throws SQLException {
-        // Open database connection
-        conn = DriverManager.getConnection(databaseURL);
-
-        // Create sql query
-        String sql = "INSERT INTO users(username, password) VALUES (?,?)";
-
-        // Create prepared statement and add parameters safely
-        PreparedStatement preparedStatement = conn.prepareStatement(sql);
-        preparedStatement.setString(1, "Chester Golden");
-        preparedStatement.setString(2, "password");
-
-        // Execute query
-        preparedStatement.executeUpdate();
-
-        // Close database connection
-        conn.close();
+    public static void userListRemove(User user) {
+        int userIndex = -1;
+        for(int i = 0; i < users.size();i++){
+            if(users.get(i) == user){
+                userIndex = i;
+                break;
+            }
+        }
+        users.remove(userIndex);
+        accessLevels.remove(userIndex);
     }
 
     private static User readOwner() throws SQLException {
@@ -126,7 +122,7 @@ public class Driver {
         statement.setString(2, channelOwner.getNick());
         statement.setString(3, channelOwner.getIdent());
         statement.setString(4, channelOwner.getHostname());
-        if(channel.getTopic() != "" || channel.getTopic() != null) {
+        if(!channel.getTopic().equals("")  || channel.getTopic() != null) {
             statement.setString(5, channel.getTopic());
         } else {
             statement.setString(5, "");
@@ -197,6 +193,15 @@ public class Driver {
         return channels;
     }
 
+    private static void updateHostname(User user, String hostname) throws SQLException {
+        String sql = "UPDATE owner SET hostname = ? WHERE nick = ?";
+        conn = DriverManager.getConnection(databaseURL);
+        PreparedStatement statement = conn.prepareStatement(sql);
+        statement.setString(1, hostname);
+        statement.setString(2, user.getNick());
+        statement.executeUpdate();
+    }
+
     private static boolean ownerTableExists() throws SQLException{
         String sql = "SELECT name FROM sqlite_master WHERE type='table' AND name='owner'";
 
@@ -253,6 +258,15 @@ public class Driver {
         // Return the userInfo ArrayList to the main method.
         return new User(nick, ident, hostname);
     }
+    private static int getUserIndex(String nick){
+        int userIndex = -1;
+        for(int i = 0; i < Driver.users.size(); i++){
+            if(Driver.users.get(i).getNick().equals(nick)){
+                userIndex = i;
+            }
+        }
+        return userIndex;
+    }
 
     private static ArrayList<String> parseCommandSent(String command) throws Exception {
         // Create array list to return to the main method
@@ -289,11 +303,11 @@ public class Driver {
         // Server and connection details
         String server = "tourian86.net";
         int port = 6667;
-        String nick = "Tourian";
+
         String login = "chester";
         String realName = ":The last metroid is in captivity";
         ArrayList<String> commandSent;
-        boolean ownerEstablished = false;
+        boolean ownerEstablished;
         User owner = null;
         ArrayList<Channel> channels = null;
         //String configurationPassword = "hereandnow";
@@ -363,10 +377,10 @@ public class Driver {
 
             // Create objects to read and write date to/from the socket
             writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-            reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
             // Log on to the server
-            writer.write("NICK " + nick + "\r\n");
+            writer.write("NICK " + botNick + "\r\n");
             writer.write("USER " + login + " * * " + realName + "\r\n");
             writer.write("PASS thepassword\r\n");
             writer.flush();
@@ -375,6 +389,7 @@ public class Driver {
             String line;
             while((line = reader.readLine()) != null){
                 System.out.println(line);
+                writeToLog(line);
 
                 if (line.toLowerCase().startsWith("ping ")) {
                     // Must respond to pings to avoid disconnection
@@ -392,7 +407,7 @@ public class Driver {
                     return;
                 }
             }
-
+            assert channels != null;
             for(Channel channel : channels){
                 writer.write("JOIN " + channel.getName() + "\r\n");
                 writer.flush();
@@ -401,6 +416,7 @@ public class Driver {
             // Keep reading lines from the server
             while((line = reader.readLine()) != null){
                 System.out.println(line);
+                writeToLog(line);
                 if (line.toLowerCase().startsWith("ping ")) {
                     // Must respond to pings to avoid disconnection
                     writer.write("PONG " + line.substring(5) + "\r\n");
@@ -429,16 +445,41 @@ public class Driver {
                         continue;
 
                     }
+                    else if(commandSent.size() >= 2)
+                    {
+                        if(commandSent.get(1).equals("anotherpassword") && commandSent.get(0).equals("mask")) {
+                        User userToUpdate = null;
+                        boolean foundUser = false;
+                        for (User currentUser : users) {
+                            if (user.getNick().equals(currentUser.getNick())) {
+                                userToUpdate = currentUser;
+                                foundUser = true;
+                            }
+                        }
+                        if (foundUser) {
+                            updateHostname(userToUpdate, user.getHostname());
+                            sendPrivateMessage(user, "Updated hostmask.");
+                            userListRemove(userToUpdate);
+                            userListAdd(user, 0);
+                            owner = user;
+                        } else {
+                            sendPrivateMessage(user, "Didn't find you on the users list");
+                        }
+                    }
+
+                    }
 
                     // Check if user sending potential command is an authenticated user
-                    if(isAuthenticatedUser(user))
+                    int userIndex = getUserIndex(user.getNick());
+                    int userAccessLevel = accessLevels.get(userIndex);
+                    if(isAuthenticatedUser(user) && userAccessLevel == 0)
                     {
                         switch(commandSent.get(0).toLowerCase())
                         {
                             case "die":
                                 Thread.sleep(1500);
                                 sendPrivateMessage(user, "Ok...");
-                                writer.write("QUIT :I'M OUT!\r\n");
+                                writer.write("QUIT :I'M QUIT!\r\n");
                                 writer.flush();
                                 Thread.sleep(delayTime);
                                 break;
@@ -468,7 +509,7 @@ public class Driver {
                                 Channel newChannel = new Channel(commandSent.get(1), user);
                                 addChannel(newChannel);
                                 sendPrivateMessage(user, "Added channel to database.");
-
+                                break;
 
                             default:
                                 break;
