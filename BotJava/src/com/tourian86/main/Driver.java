@@ -20,6 +20,7 @@ public class Driver {
 
     private static void sendPrivateMessage(User user, String message) throws IOException, InterruptedException
     {
+        System.out.println("Fuk");
         writer.write("PRIVMSG " + user.getNick() + " :" + message + "\r\n");
         writer.flush();
         Thread.sleep(delayTime);
