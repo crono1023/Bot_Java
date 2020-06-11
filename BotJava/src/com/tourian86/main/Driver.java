@@ -17,7 +17,6 @@ public class Driver {
     private static BufferedWriter writer;
     private static final int delayTime = 1500;
     private static final String botNick = "Tourian";
-    private static String test = "Fred Fucks";
 
     private static void joinChannel(Channel channel) throws IOException {
         writer.write("JOIN " + channel.getName() + "\r\n");
@@ -26,18 +25,69 @@ public class Driver {
 
     private static void sendPrivateMessage(User user, String message) throws IOException, InterruptedException
     {
-        System.out.println("Test: " + test);
-        System.out.println("Fuk");
         writer.write("PRIVMSG " + user.getNick() + " :" + message + "\r\n");
         writer.flush();
         Thread.sleep(delayTime);
-        String logLine = "<" + botNick + ">: " + message;
+        String logLine = "<" + botNick + "> " + message +"\n";
         writeToLog(logLine);
+        FileWriter logWriter = new FileWriter(user.getNick() + ".log", true);
+        logWriter.write(logLine);
+        logWriter.close();
     }
     private static void writeToLog(String line) throws IOException {
         FileWriter logWriter = new FileWriter("test_log", true);
-        logWriter.write(line + "\n");
-        logWriter.close();
+        StringBuilder sb = new StringBuilder();
+        String lineToWrite;
+        User currentUser;
+
+        String[] split = line.split(" ");
+        if(split.length >= 2) {
+
+
+            if (split[1].equals("PRIVMSG")) {
+                currentUser = parseUserInfo(line);
+                // If from a channel (check first character is '#'
+                if (split[2].charAt(0) == '#') {
+                    logWriter = new FileWriter("" + split[2] + ".log", true);
+                    sb.append("<").append(currentUser.getNick()).append("> ");
+                    for (int i = 0; i < split.length; i++) {
+                        if (i == 3) {
+                            split[i] = split[i].substring(1);
+                        }
+                        if (i >= 3) {
+                            sb.append(split[i]);
+                            if (i != split.length - 1) {
+                                sb.append(" ");
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    logWriter = new FileWriter(currentUser.getNick() + ".log", true);
+                    sb.append("<").append(currentUser.getNick()).append("> ");
+                    for(int i = 0; i < split.length; i++)
+                    {
+                        if(i == 3){
+                            sb.append(split[i].substring(1));
+                        }
+                        else if(i > 3)
+                        {
+                            sb.append(split[i]);
+                            if(i != split.length - 1){
+                                sb.append(" ");
+                            }
+                        }
+                    }
+                }
+                lineToWrite = sb.toString();
+                logWriter.write(lineToWrite + '\n');
+            } else {
+
+                logWriter.write(line + "\n");
+            }
+            logWriter.close();
+        }
     }
 
     private static boolean isAuthenticatedUser(User user)
@@ -268,8 +318,9 @@ public class Driver {
     }
     private static int getUserIndex(String nick){
         int userIndex = -1;
+        nick = nick.toLowerCase();
         for(int i = 0; i < Driver.users.size(); i++){
-            if(Driver.users.get(i).getNick().equals(nick)){
+            if(Driver.users.get(i).getNick().toLowerCase().equals(nick)){
                 userIndex = i;
             }
         }
