@@ -19,6 +19,11 @@ public class Driver {
     private static final String botNick = "Tourian";
     private static String test = "Fred Fucks";
 
+    private static void joinChannel(Channel channel) throws IOException {
+        writer.write("JOIN " + channel.getName() + "\r\n");
+        writer.flush();
+    }
+
     private static void sendPrivateMessage(User user, String message) throws IOException, InterruptedException
     {
         System.out.println("Test: " + test);
@@ -137,7 +142,7 @@ public class Driver {
 
         statement.executeUpdate();
         conn.close();
-        System.out.println("Wrote chnnale to channel database.");
+        System.out.println("Wrote channel to channel database.");
     }
 
 
@@ -511,6 +516,7 @@ public class Driver {
                                     Channel newChannel = new Channel(commandSent.get(1), user);
                                     addChannel(newChannel);
                                     sendPrivateMessage(user, "Added channel to database.");
+                                    joinChannel(newChannel);
                                     break;
 
                                 default:
