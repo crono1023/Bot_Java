@@ -542,6 +542,7 @@ public class Driver {
                     if(userIndex >= 0) {
                         int userAccessLevel = accessLevels.get(userIndex);
                         if (isAuthenticatedUser(user) && userAccessLevel == 0) {
+                            File file;
                             switch (commandSent.get(0).toLowerCase()) {
                                 case "die":
                                     Thread.sleep(1500);
@@ -613,7 +614,32 @@ public class Driver {
                                         sendPrivateMessage(user, sb.toString());
                                     }
 
+                                    break;
 
+                                case "stop":
+                                    sendPrivateMessage(user, "maybe");
+                                    break;
+
+                                //debug command
+                                case "reset":
+                                    file = new File("data.db");
+                                    boolean ignored = file.delete();
+                                    if(ignored)
+                                        System.out.println("ok");
+                                    conn = DriverManager.getConnection(databaseURL);
+                                    createOwnerTable();
+                                    createUsersTable();
+                                    conn.close();
+                                    ownerEstablished = false;
+                                    owner = null;
+                                    users.clear();
+                                    accessLevels.clear();
+
+                                    if(commandSent.get(1).toLowerCase().equals("die")){
+                                        writer.write("QUIT :I'M QUIT!\r\n");
+                                        writer.flush();
+                                    }
+                                    break;
                                 default:
                                     break;
                             }
