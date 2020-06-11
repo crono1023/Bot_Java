@@ -17,9 +17,11 @@ public class Driver {
     private static BufferedWriter writer;
     private static final int delayTime = 1500;
     private static final String botNick = "Tourian";
+    private static String test = "Fred Fucks";
 
     private static void sendPrivateMessage(User user, String message) throws IOException, InterruptedException
     {
+        System.out.println("Test: " + test);
         System.out.println("Fuk");
         writer.write("PRIVMSG " + user.getNick() + " :" + message + "\r\n");
         writer.flush();
@@ -472,50 +474,50 @@ public class Driver {
 
                     // Check if user sending potential command is an authenticated user
                     int userIndex = getUserIndex(user.getNick());
-                    int userAccessLevel = accessLevels.get(userIndex);
-                    if(isAuthenticatedUser(user) && userAccessLevel == 0)
-                    {
-                        switch(commandSent.get(0).toLowerCase())
-                        {
-                            case "die":
-                                Thread.sleep(1500);
-                                sendPrivateMessage(user, "Ok...");
-                                writer.write("QUIT :I'M QUIT!\r\n");
-                                writer.flush();
-                                Thread.sleep(delayTime);
-                                break;
+                    if(userIndex >= 0) {
+                        int userAccessLevel = accessLevels.get(userIndex);
+                        if (isAuthenticatedUser(user) && userAccessLevel == 0) {
+                            switch (commandSent.get(0).toLowerCase()) {
+                                case "die":
+                                    Thread.sleep(1500);
+                                    sendPrivateMessage(user, "Ok...");
+                                    writer.write("QUIT :I'M QUIT!\r\n");
+                                    writer.flush();
+                                    Thread.sleep(delayTime);
+                                    break;
 
-                            case "whois":
-                                assert owner != null;
-                                Thread.sleep(1500);
-                                sendPrivateMessage(user, "My owner is: " + owner.getNick());
-                                sendPrivateMessage(user, "" + user.getIdent() +
-                                        "@" + user.getHostname());
-                                break;
+                                case "whois":
+                                    assert owner != null;
+                                    Thread.sleep(1500);
+                                    sendPrivateMessage(user, "My owner is: " + owner.getNick());
+                                    sendPrivateMessage(user, "" + user.getIdent() +
+                                            "@" + user.getHostname());
+                                    break;
 
-                            case "yo":
-                                Thread.sleep(1500);
-                                sendPrivateMessage(user, "Yo!");
-                                break;
+                                case "yo":
+                                    Thread.sleep(1500);
+                                    sendPrivateMessage(user, "Yo!");
+                                    break;
 
-                            case "hi!":
-                                Thread.sleep(1500);
-                                sendPrivateMessage(user, "Hi! I like shorts!");
-                                sendPrivateMessage(user, "They're comfy and");
-                                sendPrivateMessage(user, "easy to wear!");
-                                break;
+                                case "hi!":
+                                    Thread.sleep(1500);
+                                    sendPrivateMessage(user, "Hi! I like shorts!");
+                                    sendPrivateMessage(user, "They're comfy and");
+                                    sendPrivateMessage(user, "easy to wear!");
+                                    break;
 
-                            case "addchan":
-                                Thread.sleep(1500);
-                                Channel newChannel = new Channel(commandSent.get(1), user);
-                                addChannel(newChannel);
-                                sendPrivateMessage(user, "Added channel to database.");
-                                break;
+                                case "addchan":
+                                    Thread.sleep(1500);
+                                    Channel newChannel = new Channel(commandSent.get(1), user);
+                                    addChannel(newChannel);
+                                    sendPrivateMessage(user, "Added channel to database.");
+                                    break;
 
-                            default:
-                                break;
+                                default:
+                                    break;
 
 
+                            }
                         }
                     }
                 }
