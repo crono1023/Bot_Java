@@ -29,8 +29,17 @@ public class Driver {
         writer.flush();
         Thread.sleep(delayTime);
         String logLine = "<" + botNick + "> " + message +"\n";
-        writeToLog(logLine);
         FileWriter logWriter = new FileWriter(user.getNick() + ".log", true);
+        logWriter.write(logLine);
+        logWriter.close();
+    }
+
+    private static void sendPrivateMessage(Channel channel, String message) throws IOException, InterruptedException{
+        writer.write("PRIVMSG " + channel.getName() + " :" + message + "\r\n");
+        writer.flush();
+        Thread.sleep(delayTime);
+        String logLine = "<" + botNick + "> " + message +"\n";
+        FileWriter logWriter = new FileWriter(channel.getName() + ".log", true);
         logWriter.write(logLine);
         logWriter.close();
     }
@@ -360,7 +369,7 @@ public class Driver {
     public static void main(String[] args) throws Exception {
 
         // Server and connection details
-        String server = "tourian86.net";
+        String server = "irc.freenode.org";
         int port = 6667;
 
         String login = "chester";
@@ -570,10 +579,43 @@ public class Driver {
                                     joinChannel(newChannel);
                                     break;
 
+                                case "say":
+                                    String target;
+                                    StringBuilder sb = new StringBuilder();
+
+                                    if(commandSent.size() < 3)
+                                        break;
+                                    target = commandSent.get(1);
+                                    for(int i = 2; i < commandSent.size(); i++)
+                                    {
+                                        sb.append(commandSent.get(i));
+                                        if(i != commandSent.size() - 1)
+                                        {
+                                            sb.append(" ");
+                                        }
+                                    }
+                                    if(target.charAt(0) == '#'){
+                                        Channel targetChannel = null;
+                                        for(Channel currentChannel : channels){
+                                            if(currentChannel.getName().equals(target))
+                                            {
+                                                targetChannel = currentChannel;
+
+                                            }
+                                        }
+                                        if(targetChannel != null){
+                                            sendPrivateMessage(targetChannel, sb.toString());
+                                        }
+
+
+                                    }
+                                    else {
+                                        sendPrivateMessage(user, sb.toString());
+                                    }
+
+
                                 default:
                                     break;
-
-
                             }
                         }
                     }
