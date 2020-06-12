@@ -17,6 +17,7 @@ public class Driver {
     private static BufferedWriter writer;
     private static final int delayTime = 1500;
     private static final String botNick = "Tourian";
+    private static final boolean debug = false;
 
     private static void joinChannel(Channel channel) throws IOException {
         writer.write("JOIN " + channel.getName() + "\r\n");
@@ -176,7 +177,7 @@ public class Driver {
 
         Statement statement = conn.createStatement();
         statement.execute(sql);
-        System.out.println("Channels table created.");
+        if(debug) { System.out.println("Channels table created."); }
 
     }
     private static void addChannel(Channel channel) throws SQLException {
@@ -214,7 +215,7 @@ public class Driver {
                 "hostname text NOT NULL);";
         Statement statement = conn.createStatement();
         statement.execute(sql);
-        System.out.println("Owner table created");
+        if(debug) { System.out.println("Owner table created"); }
     }
 
     private static void createUsersTable() throws SQLException {
@@ -277,10 +278,10 @@ public class Driver {
         rs = statement.executeQuery(sql);
 
         if (rs.next()) {
-            System.out.println("Found table");
+            if(debug) { System.out.println("Found table"); }
             return true;
         } else {
-            System.out.println("Didn't find table");
+            if(debug) { System.out.println("Didn't find table"); }
             return false;
         }
     }
@@ -369,7 +370,7 @@ public class Driver {
     public static void main(String[] args) throws Exception {
 
         // Server and connection details
-        String server = "irc.freenode.org";
+        String server = "tourian86.net";
         int port = 6667;
 
         String login = "chester";
@@ -378,11 +379,11 @@ public class Driver {
         boolean ownerEstablished;
         User owner = null;
         ArrayList<Channel> channels = null;
-        //String configurationPassword = "hereandnow";
+
         try {
 
             conn = DriverManager.getConnection(databaseURL);
-            System.out.println("Connected to database data.db.");
+            if(debug) { System.out.println("Connected to database data.db.") ; }
 
             // Check if table called "owner" exists
             if (!ownerTableExists()) {
@@ -397,7 +398,7 @@ public class Driver {
                 if (!ownerTableEmpty()) {
                     owner = readOwner();
                     ownerEstablished = true;
-                    System.out.println("Owner has been established from database.");
+                    if(debug) { System.out.println("Owner established from database."); }
                     userListAdd(owner, 0);
                 } else {
                     ownerEstablished = false;
@@ -462,7 +463,7 @@ public class Driver {
                 if (line.toLowerCase().startsWith("ping ")) {
                     // Must respond to pings to avoid disconnection
                     writer.write("PONG " + line.substring(5) + "\r\n");
-                    System.out.println("I got pinged!");
+                    if(debug){ System.out.println("I got pinged!");}
                     writer.flush();
                 }
 
@@ -488,7 +489,7 @@ public class Driver {
                 if (line.toLowerCase().startsWith("ping ")) {
                     // Must respond to pings to avoid disconnection
                     writer.write("PONG " + line.substring(5) + "\r\n");
-                    System.out.println("I got pinged!");
+                    if(debug) { System.out.println("I got pinged!"); }
                     writer.flush();
                 }
                 // If command is a private message (potential command)
@@ -576,6 +577,7 @@ public class Driver {
                                     Thread.sleep(1500);
                                     Channel newChannel = new Channel(commandSent.get(1), user);
                                     addChannel(newChannel);
+                                    channels.add(newChannel);
                                     sendPrivateMessage(user, "Added channel to database.");
                                     joinChannel(newChannel);
                                     break;
@@ -623,9 +625,7 @@ public class Driver {
                                 //debug command
                                 case "reset":
                                     file = new File("data.db");
-                                    boolean ignored = file.delete();
-                                    if(ignored)
-                                        System.out.println("ok");
+                                    if(!file.delete()) { System.out.println("Unable to delete database."); }
                                     conn = DriverManager.getConnection(databaseURL);
                                     createOwnerTable();
                                     createUsersTable();
